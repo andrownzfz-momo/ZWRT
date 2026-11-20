@@ -30,9 +30,11 @@
 # chinadns-ng/tcping/xray-core etc. to feeds/packages).
 set -e
 
+# scripts/feeds parses feed names with \w+ (no hyphens allowed), so this
+# feed is named mosdns_luci instead of luci-mosdns.
 cat >> feeds.conf.default <<'EOF'
 src-git helloworld https://github.com/fw876/helloworld.git
-src-git luci-mosdns https://github.com/sbwml/luci-app-mosdns.git
+src-git mosdns_luci https://github.com/sbwml/luci-app-mosdns.git
 src-git nssstatus https://github.com/shadowvershh/luci-app-nssstatus.git
 src-git turboacc https://github.com/chenmozhijin/turboacc.git;luci
 src-git wolplus https://github.com/animegasan/luci-app-wolplus.git
