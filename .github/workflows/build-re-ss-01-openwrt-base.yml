@@ -68,7 +68,13 @@ jobs:
           set -e
           # Directory-level replacement — same set Kwrt uses, plus the
           # base-tree packages QWRT's config needs (emortal/shellsync/
-          # fullconenat-nft) and our Design theme package.
+          # fullconenat-nft) and our Design theme + nssstatus packages.
+          # package/kernel/linux MUST come from LiBwrt too: its modules/*.mk
+          # carry the DEPENDS lines (e.g. ipt-ipopt -> kmod-nf-conntrack)
+          # that match the grafted kernel config - official's copies lack
+          # them and the kmod dependency check fails packaging (run
+          # 44739094508). Same reasoning for qca-nss-dp/qca-ssdk: they must
+          # be built against the same NSS kernel tree.
           for d in \
             target/linux/generic \
             target/linux/qualcommax \
@@ -77,6 +83,9 @@ jobs:
             package/firmware/ath11k-firmware \
             package/kernel/mac80211 \
             package/kernel/nat46 \
+            package/kernel/linux \
+            package/kernel/qca-nss-dp \
+            package/kernel/qca-ssdk \
             package/emortal \
             package/network/services/shellsync \
             package/network/utils/fullconenat-nft \

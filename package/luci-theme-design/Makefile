@@ -1,8 +1,8 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-theme-design
-PKG_VERSION:=1.0
-PKG_RELEASE:=20261109-1
+PKG_VERSION:=7.1
+PKG_RELEASE:=20261109
 PKGARCH:=all
 
 LUCI_TITLE:=LuCI Theme - Design
