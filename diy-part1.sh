@@ -10,9 +10,13 @@
 #       luci-app-ssr-plus, mosdns, shadowsocksr-libev
 #   feeds/base/luci-app-mosdns/...     -> sbwml/luci-app-mosdns
 #       luci-app-mosdns, geo2txt
-#   feeds/base/luci-app-nssstatus      -> shadowvershh/luci-app-nssstatus
 #   feeds/base/luci-app-turboacc       -> chenmozhijin/turboacc (branch luci)
 #   feeds/base/luci-app-wolplus        -> animegasan/luci-app-wolplus
+#   package/luci-app-nssstatus         -> shadowvershh/luci-app-nssstatus
+#       VENDORED into package/ (no feed line): its Makefile sits at the
+#       repo root, which the feeds index generator cannot scan - both
+#       ZWRT and official trees printed "Ignoring feed ... index missing"
+#       and silently dropped the package (runs 44695899864, 44728156638).
 #
 # Already covered by ZWRT default feeds (do NOT re-add):
 #   luci feed     -> passwall, homeproxy, dockerman, nlbwmon, autoreboot,
@@ -35,7 +39,6 @@ set -e
 cat >> feeds.conf.default <<'EOF'
 src-git helloworld https://github.com/fw876/helloworld.git
 src-git mosdns_luci https://github.com/sbwml/luci-app-mosdns.git
-src-git nssstatus https://github.com/shadowvershh/luci-app-nssstatus.git
 src-git turboacc https://github.com/chenmozhijin/turboacc.git;luci
 src-git wolplus https://github.com/animegasan/luci-app-wolplus.git
 EOF
