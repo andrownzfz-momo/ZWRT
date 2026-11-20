@@ -1,0 +1,3 @@
+
+(function(){'use strict';window.LuciCompat={version:null,isLegacy:false,init:function(){if(typeof L!=='undefined'&&L.env){if(L.env.luci_version){this.version=L.env.luci_version;var majorVersion=parseInt(this.version.split('.')[0]);this.isLegacy=majorVersion<23;}else{this.isLegacy=true;}}
+return this;},querySelector:function(selector){return document.querySelector(selector);},addEvent:function(element,event,handler){if(element&&element.addEventListener){element.addEventListener(event,handler);}},hasJQuery:function(){return typeof jQuery!=='undefined'||typeof $!=='undefined';}};if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){window.LuciCompat.init();});}else{window.LuciCompat.init();}})();
