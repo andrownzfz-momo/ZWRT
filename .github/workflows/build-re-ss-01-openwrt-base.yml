@@ -63,6 +63,68 @@ jobs:
           echo "base tree:"
           git -C openwrt log -1 --oneline
 
+      - name: Patch download infra for @IMMORTALWRT
+        run: |
+          set -e
+          # The immortalwrt packages/luci feeds reference @IMMORTALWRT, a
+          # named mirror only immortalwrt-derived trees know. Official
+          # openwrt-25.12's dl_method() filter omits it, so the download
+          # rule degenerates to "No download method available" before any
+          # network I/O (run 44848001760 died on fibocom-qmi-wwan; the
+          # ZWRT main tree carries all three pieces and built it fine).
+          # Surgical port of ZWRT's support - three spots, no wholesale
+          # file replacement (keeps official 25.12's own changes).
+          python3 - <<'PYEOF'
+          import json
+          # 1) download.mk: recognize @IMMORTALWRT as a default-method URL
+          p = 'openwrt/include/download.mk'
+          s = open(p).read()
+          if '@IMMORTALWRT' not in s:
+              old = '@OPENWRT @APACHE/%'
+              assert old in s, 'download.mk anchor missing'
+              s = s.replace(old, '@OPENWRT @IMMORTALWRT @APACHE/%', 1)
+              open(p, 'w').write(s)
+              print('patched download.mk')
+          else:
+              print('download.mk already has @IMMORTALWRT')
+          # 2) download.pl: skip the bare token, then load its mirror list
+          p = 'openwrt/scripts/download.pl'
+          s = open(p).read()
+          if '@IMMORTALWRT' not in s:
+              anchor = '# use OpenWrt source server directly\n'
+              assert anchor in s, 'download.pl elsif anchor missing'
+              s = s.replace(
+                  anchor,
+                  anchor + '\t} elsif ($mirror =~ /^\\@IMMORTALWRT$/) {\n'
+                           '\t\t# use ImmortalWrt source server directly\n',
+                  1)
+              anchor2 = "projectsmirrors '@OPENWRT';\n"
+              assert anchor2 in s, 'download.pl projectsmirrors anchor missing'
+              s = s.replace(
+                  anchor2,
+                  "projectsmirrors '@IMMORTALWRT';\n" + anchor2,
+                  1)
+              open(p, 'w').write(s)
+              print('patched download.pl')
+          else:
+              print('download.pl already has @IMMORTALWRT')
+          # 3) projectsmirrors.json: the actual mirror URLs
+          p = 'openwrt/scripts/projectsmirrors.json'
+          data = json.load(open(p))
+          if '@IMMORTALWRT' not in data:
+              data['@IMMORTALWRT'] = [
+                  'https://mirror2.immortalwrt.org/sources',
+                  'https://mirror.immortalwrt.org/sources',
+                  'https://sources-cdn.immortalwrt.org',
+                  'https://sources.immortalwrt.org',
+              ]
+              json.dump(data, open(p, 'w'), indent='\t')
+              print('patched projectsmirrors.json')
+          else:
+              print('projectsmirrors.json already has @IMMORTALWRT')
+          PYEOF
+          grep -n '@IMMORTALWRT' openwrt/include/download.mk openwrt/scripts/download.pl openwrt/scripts/projectsmirrors.json
+
       - name: Transplant LiBwrt NSS directories
         run: |
           set -e
