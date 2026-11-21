@@ -56,6 +56,26 @@ jobs:
       - name: Install feeds
         run: ./scripts/feeds install -a
 
+      - name: Resolve mosdns to helloworld (QWRT parity)
+        run: |
+          set -e
+          # The immortalwrt packages feed also ships mosdns (5.3.3) and
+          # sits BEFORE helloworld in feeds.conf, so install -a's
+          # first-wins picked it. Its Makefile installs
+          # /etc/init.d/mosdns, colliding with sbwml's luci-app-mosdns
+          # 1.7.15 (same file) - apk aborts image install with "trying
+          # to overwrite" (run 44847998451, 456/542, the only blocker).
+          # QWRT shipped helloworld's mosdns 5.3.4: binary-only, the
+          # init script belongs to luci-app-mosdns alone.
+          rm -rf package/feeds/packages/mosdns
+          ./scripts/feeds install -p helloworld mosdns
+          test -f package/feeds/helloworld/mosdns/Makefile
+          if grep -q 'init.d' package/feeds/helloworld/mosdns/Makefile; then
+            echo "::error::helloworld mosdns unexpectedly ships an init script"
+            exit 1
+          fi
+          echo "mosdns -> $(grep -E '^PKG_(NAME|VERSION)' package/feeds/helloworld/mosdns/Makefile | tr '\n' ' ')"
+
       - name: Load custom configuration
         run: |
           [ -e files ] && cp -r files files.bak

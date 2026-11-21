@@ -188,6 +188,26 @@ jobs:
         working-directory: openwrt
         run: ./scripts/feeds install -a
 
+      - name: Resolve mosdns to helloworld (QWRT parity)
+        working-directory: openwrt
+        run: |
+          set -e
+          # Same trap as the main line: immortalwrt packages ships
+          # mosdns 5.3.3 WITH /etc/init.d/mosdns and sits before
+          # helloworld in feeds.conf, so install -a first-wins picked
+          # it; sbwml's luci-app-mosdns also owns that file and apk
+          # aborts image install with "trying to overwrite" (main run
+          # 44847998451, 456/542). QWRT shipped helloworld's mosdns
+          # 5.3.4: binary-only, init script belongs to luci-app-mosdns.
+          rm -rf package/feeds/packages/mosdns
+          ./scripts/feeds install -p helloworld mosdns
+          test -f package/feeds/helloworld/mosdns/Makefile
+          if grep -q 'init.d' package/feeds/helloworld/mosdns/Makefile; then
+            echo "::error::helloworld mosdns unexpectedly ships an init script"
+            exit 1
+          fi
+          echo "mosdns -> $(grep -E '^PKG_(NAME|VERSION)' package/feeds/helloworld/mosdns/Makefile | tr '\n' ' ')"
+
       - name: Prune kiddin9 duplicates
         run: |
           set -e
