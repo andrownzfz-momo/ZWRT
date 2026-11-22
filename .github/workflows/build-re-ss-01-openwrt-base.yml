@@ -36,10 +36,11 @@ jobs:
 
     permissions:
       contents: write
+      actions: write
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Initialization environment
         env:
@@ -152,7 +153,11 @@ jobs:
             package/network/services/shellsync \
             package/network/utils/fullconenat-nft \
             package/luci-theme-design \
-            package/luci-app-nssstatus
+            package/luci-app-nssstatus \
+            package/adbyby \
+            package/luci-app-wolplus \
+            package/luci-app-ramfree \
+            package/luci-app-netsteer
           do
             rm -rf "openwrt/$d"
             mkdir -p "openwrt/$(dirname "$d")"
@@ -262,6 +267,21 @@ jobs:
             CONFIG_PACKAGE_kmod-qca-nss-dp \
             CONFIG_PACKAGE_kmod-usb-net-qmi-wwan-fibocom \
             CONFIG_PACKAGE_wpad-openssl \
+            CONFIG_PACKAGE_luci-app-homeproxy \
+            CONFIG_PACKAGE_kmod-usb-serial-qualcomm \
+            CONFIG_PACKAGE_kmod-usb-serial-sierrawireless \
+            CONFIG_PACKAGE_dockerd \
+            CONFIG_PACKAGE_luci-app-dockerman \
+            CONFIG_PACKAGE_ttyd \
+            CONFIG_PACKAGE_luci-app-ttyd \
+            CONFIG_PACKAGE_hd-idle \
+            CONFIG_PACKAGE_luci-app-hd-idle \
+            CONFIG_PACKAGE_adbyby \
+            CONFIG_PACKAGE_luci-app-adbyby-plus \
+            CONFIG_PACKAGE_clashoo \
+            CONFIG_PACKAGE_luci-app-clashoo \
+            CONFIG_PACKAGE_luci-app-netsteer \
+            CONFIG_PACKAGE_luci-app-ramfree \
             CONFIG_PACKAGE_apk-openssl
           do
             grep -q "^${s}=y" .config || missing="$missing $s"
@@ -283,6 +303,34 @@ jobs:
           free -h
           df -hT
           make -j$(nproc) || make -j1 V=s
+          # This batch adds CONFIG_COMPAT so the static armv7 adbyby binary
+          # runs on arm64; COMPAT grows the kernel, so assert both that it
+          # landed in the kernel .config and that the FIT still fits the
+          # 6144k kernel slot (a bigger FIT would push factory rootfs past
+          # its pad-to offset and brick the factory layout).
+          kcfg=$(find build_dir -maxdepth6 -name .config -path '*linux-6.12*' | head -1)
+          if [ -z "$kcfg" ] || ! grep -q '^CONFIG_COMPAT=y' "$kcfg"; then
+            echo "::error::CONFIG_COMPAT not enabled (kcfg=$kcfg)"
+            exit 1
+          fi
+          python3 - <<'PY'
+          import struct, glob, sys
+          fs = glob.glob('bin/targets/*/*/*factory*.bin')
+          if not fs:
+              print('::error::no factory image found')
+              sys.exit(1)
+          for f in fs:
+              with open(f, 'rb') as fh:
+                  hdr = fh.read(8)
+              if hdr[:4] != bytes.fromhex('d00dfeed'):
+                  print('::error::%s: not a FIT image' % f)
+                  sys.exit(1)
+              size = struct.unpack('>I', hdr[4:8])[0]
+              print('%s: FIT totalsize=%d (limit 6291456)' % (f, size))
+              if size > 6291456:
+                  print('::error::kernel FIT %d > 6144k - factory layout would break' % size)
+                  sys.exit(1)
+          PY
           echo "status=success" >> $GITHUB_OUTPUT
           grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
           [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
@@ -305,7 +353,7 @@ jobs:
           echo "status=success" >> $GITHUB_OUTPUT
 
       - name: Upload firmware directory
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         if: steps.organize.outputs.status == 'success' && !cancelled()
         with:
           name: OpenWrtKiddin9_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
@@ -321,7 +369,7 @@ jobs:
           echo "status=success" >> $GITHUB_OUTPUT
 
       - name: Upload firmware to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         if: steps.tag.outputs.status == 'success' && !cancelled()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -338,10 +386,15 @@ jobs:
           keep_minimum_runs: 2
 
       - name: Remove old Releases
-        uses: dev-drprasad/delete-older-releases@master
         if: env.UPLOAD_RELEASE == 'true' && !cancelled()
-        with:
-          keep_latest: 3
-          delete_tags: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Keep the 3 newest releases; delete older ones and their tags.
+          # gh CLI replaces dev-drprasad/delete-older-releases@master,
+          # which runs on node20 and warned on every build.
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[3:] | .[] | .tag_name' |
+            while read -r tag; do
+              [ -n "$tag" ] || continue
+              gh release delete "$tag" --yes --cleanup-tag || true
+            done

@@ -1,0 +1,85 @@
+# NetSteer 流媒体平台域名数据集 (streaming scene evidence)
+# 来源: 各平台官方公开 CDN 域名 (官方文档/播放器网络面板), 策划 2026-11-08
+# 格式: <类别>\t<域名后缀>; 匹配=host 等于后缀或以其结尾 (与 gamedomains.txt 同法)
+# 用途: 场景感知 (streaming 场景证据), 不做 QoS enforcement
+
+# netflix
+netflix	netflix.com
+netflix	nflxvideo.net
+netflix	nflximg.net
+netflix	nflxext.com
+# youtube
+youtube	youtube.com
+youtube	googlevideo.com
+youtube	ytimg.com
+youtube	youtu.be
+# twitch (amazon)
+twitch	twitch.tv
+twitch	ttvnw.net
+twitch	twitchcdn.net
+# disney+
+disney	disneyplus.com
+disney	dssott.com
+# hbo max
+hbo	max.com
+hbo	hbomaxcdn.com
+# prime video
+prime	primevideo.com
+# bilibili
+bilibili	bilibili.com
+bilibili	bilivideo.com
+bilibili	bilivideocdn.com
+bilibili	acgvideo.com
+bilibili	hdslb.com
+bilibili	biliapi.net
+# iqiyi
+iqiyi	iqiyi.com
+iqiyi	iq.com
+iqiyi	iqiyipic.com
+iqiyi	qy.net
+# youku (alibaba)
+youku	youku.com
+youku	ykimg.com
+# tencent video
+qqvideo	v.qq.com
+qqvideo	video.qq.com
+qqvideo	tencentvideo.site
+# douyin
+douyin	douyin.com
+douyin	douyinvod.com
+douyin	douyinpic.com
+douyin	iesdouyin.com
+# kuaishou
+kuaishou	kuaishou.com
+kuaishou	ksapisrv.com
+kuaishou	kwimgs.com
+kuaishou	yximgs.com   # 快手视频主 CDN (kwimgs=图片, 视频大头走 yximgs; 2026-11-12 实测漏判补)
+# mgtv / sohu / letv
+mgtv	mgtv.com
+sohu	tv.sohu.com
+sohu	data.vod.itc.cn
+letv	letv.com
+letv	letvimg.com
+# hunan/aipai etc.
+pptv	pptv.com
+
+# ---- anti-AD 反推段 START ----
+# 来源: anti-AD 拦截列表按平台家族表反推 (只引入家族命中域名, 其余忽略), 采集 2026-11-12
+# 平台归属: iqiyi=71.am, bilibili=bilibili.com, kuaishou=gifshow.com, mgtv=hunantv.com, iqiyi=iqiyi.com, kuaishou=kuaishou.com, mgtv=mgtv.com, netflix=netflix.com, iqiyi=qy.net, youku=tudou.com, tencent_video=v.qq.com, tencent_video=video.qq.com, youku=youku.com, youtube=youtube.com
+
+stream	71.am
+stream	bilibili.com
+stream	gifshow.com
+stream	hunantv.com
+stream	iqiyi.com
+stream	kuaishou.com
+stream	mgtv.com
+stream	netflix.com
+stream	qy.net
+stream	tudou.com
+stream	v.qq.com
+stream	video.qq.com
+stream	youku.com
+stream	youtube.com
+
+# ---- anti-AD 反推段 END ----

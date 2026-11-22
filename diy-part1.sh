@@ -11,7 +11,12 @@
 #   feeds/base/luci-app-mosdns/...     -> sbwml/luci-app-mosdns
 #       luci-app-mosdns, geo2txt
 #   feeds/base/luci-app-turboacc       -> chenmozhijin/turboacc (branch luci)
-#   feeds/base/luci-app-wolplus        -> animegasan/luci-app-wolplus
+#   package/luci-app-wolplus           -> animegasan/luci-app-wolplus VENDORED
+#       into package/ - a root-Makefile repo is invisible to scripts/feeds
+#       (same trap as nssstatus; the old feed line silently dropped it,
+#       which is why luci-app-wolplus never reached the image)
+#   feeds: clashoo                      -> kenzok8/openwrt-clashoo (subdir layout)
+#   feeds: adbybyplus                   -> kongfl888/luci-app-adbyby-plus-lite
 #   package/luci-app-nssstatus         -> shadowvershh/luci-app-nssstatus
 #       VENDORED into package/ (no feed line): its Makefile sits at the
 #       repo root, which the feeds index generator cannot scan - both
@@ -40,7 +45,8 @@ cat >> feeds.conf.default <<'EOF'
 src-git helloworld https://github.com/fw876/helloworld.git
 src-git mosdns_luci https://github.com/sbwml/luci-app-mosdns.git
 src-git turboacc https://github.com/chenmozhijin/turboacc.git;luci
-src-git wolplus https://github.com/animegasan/luci-app-wolplus.git
+src-git clashoo https://github.com/kenzok8/openwrt-clashoo.git
+src-git adbybyplus https://github.com/kongfl888/luci-app-adbyby-plus-lite.git
 EOF
 
 echo "diy-part1: feeds.conf.default updated"

@@ -1,0 +1,14 @@
+{
+	"admin/services/netsteer": {
+		"title": "网络加速 NetSteer",
+		"order": 65,
+		"action": {
+			"type": "view",
+			"path": "netsteer"
+		},
+		"depends": {
+			"acl": [ "luci-app-netsteer" ],
+			"uci": { "netsteer": true }
+		}
+	}
+}

@@ -34,4 +34,27 @@ grep -q '^CONFIG_PACKAGE_apk-mbedtls=n' .config ||
 	sed -i 's/llvm.download-ci-llvm=true/llvm.download-ci-llvm=false/' \
 		feeds/packages/lang/rust/Makefile
 
+# --- Services menu order (user spec: ssr > homeproxy > passwall > mosdns) ---
+# LuCI sorts siblings by ascending order value; negative orders pin these
+# four to the top of the Services menu regardless of what other apps ship
+# (passwall already ships -1, proving negative orders work). Fail loudly
+# when a feed restructures any of these files so the order can never
+# silently regress.
+SSR=feeds/helloworld/luci-app-ssr-plus/luasrc/controller/shadowsocksr.lua
+HP=feeds/luci/applications/luci-app-homeproxy/root/usr/share/luci/menu.d/luci-app-homeproxy.json
+PW=feeds/luci/applications/luci-app-passwall/luasrc/controller/passwall.lua
+MD=feeds/mosdns_luci/luci-app-mosdns/root/usr/share/luci/menu.d/luci-app-mosdns.json
+[ -f "$SSR" ] || { echo "::error::missing $SSR"; exit 1; }
+sed -i 's/("ShadowSocksR Plus+"), *10)/("ShadowSocksR Plus+"), -40)/' "$SSR"
+grep -q '("ShadowSocksR Plus+"), -40)' "$SSR" || { echo "::error::ssr-plus menu order patch failed"; exit 1; }
+[ -f "$HP" ] || { echo "::error::missing $HP"; exit 1; }
+sed -i '0,/"order": *10/s//"order": -30/' "$HP"
+grep -q '"order": -30' "$HP" || { echo "::error::homeproxy menu order patch failed"; exit 1; }
+[ -f "$PW" ] || { echo "::error::missing $PW"; exit 1; }
+sed -i 's/("Pass Wall"), *-1)/("Pass Wall"), -20)/; s/"settings"), *nil, *-1)/"settings"), nil, -20)/' "$PW"
+grep -q '("Pass Wall"), -20)' "$PW" || { echo "::error::passwall menu order patch failed"; exit 1; }
+[ -f "$MD" ] || { echo "::error::missing $MD"; exit 1; }
+sed -i '0,/"order": *30/s//"order": -10/' "$MD"
+grep -q '"order": -10' "$MD" || { echo "::error::mosdns menu order patch failed"; exit 1; }
+
 echo "diy-part2: .config ready"

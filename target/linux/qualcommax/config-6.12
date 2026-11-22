@@ -631,3 +631,6 @@ CONFIG_ZONE_DMA32=y
 CONFIG_ZSTD_COMMON=y
 CONFIG_ZSTD_COMPRESS=y
 CONFIG_ZSTD_DECOMPRESS=y
+# armv7 static binaries (adbyby) need AArch32 EL0 userspace on arm64;
+# without COMPAT the kernel refuses to exec them (ENOEXEC).
+CONFIG_COMPAT=y

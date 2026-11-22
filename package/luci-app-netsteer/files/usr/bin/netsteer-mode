@@ -1,0 +1,207 @@
+#!/bin/sh
+# netsteer-mode: 场景模式一键应用 (参数权威表在本脚本; 前端只展示, 不复制参数)
+# 模式:
+#   steering   纯分核: 只跑 netsteer-apply preset, 零依赖
+#   standard   均衡: SQM cake(原参数) + 全核分摊 + 分载关 + P2P 关
+#   p2p        P2P加速: standard + P2P 直通(指定 IP, 默认读 netsteer.p2p.dest_ip)
+#   throughput 极速: SQM 关 + flow offloading 开 + 全核分摊 (P2P 保留不动)
+#   latency    低延迟: SQM layer_cake + 带宽降到 90% + 全核分摊
+# 所有模式应用后输出 JSON {"mode":..., "actions":[...]}
+
+RULE_NAME="netsteer-p2p-pass"
+log() { logger -t netsteer-mode "$*"; }
+
+# SQM 节自愈 (含旧结构 sqm→queue 迁移)
+sqm_migrate() {
+	sec=$(uci -q show sqm 2>/dev/null | grep -E "=queue$|=sqm$" | head -1 | cut -d. -f2 | cut -d= -f1)
+	if [ -z "$sec" ]; then
+		uci set sqm.wan='queue'
+		sec='wan'
+		uci set sqm.$sec.interface='pppoe-wan'
+		uci set sqm.$sec.download='900000'
+		uci set sqm.$sec.upload='48000'
+		uci set sqm.$sec.script='simple.qos'
+		uci set sqm.$sec.qdisc='cake'
+	else
+		cur_type=$(uci -q show sqm 2>/dev/null | grep -E "=queue$|=sqm$" | head -1 | cut -d. -f2 | cut -d= -f2 | tr -d "'")
+		[ "$cur_type" = "sqm" ] && uci set sqm.$sec='queue'
+	fi
+	# v1.18 D13: 向导校准值覆盖 (环境变量 WIZ_DL/WIZ_UL, kbit 单位; 未设时不动现值)
+	[ -n "$WIZ_DL" ] && uci -q set sqm.$sec.download="$WIZ_DL"
+	[ -n "$WIZ_UL" ] && uci -q set sqm.$sec.upload="$WIZ_UL"
+	echo "$sec"
+}
+
+apply_standard() {
+	local acts=""
+	local sec base_dl base_ul
+	sec=$(sqm_migrate)
+	uci set sqm.$sec.enabled='1'
+	uci set sqm.$sec.script='simple.qos'
+	uci set sqm.$sec.qdisc='cake'
+	# 带宽从存档恢复 (latency 降速过的值不得滞留)
+	base_dl=$(uci -q get netsteer.sqm_base.download 2>/dev/null)
+	base_ul=$(uci -q get netsteer.sqm_base.upload 2>/dev/null)
+	[ -n "$base_dl" ] && uci set sqm.$sec.download="$base_dl"
+	[ -n "$base_ul" ] && uci set sqm.$sec.upload="$base_ul"
+	uci commit sqm; /etc/init.d/sqm restart >/dev/null 2>&1
+	acts="$acts sqm:cake-on"
+	if [ "$(uci -q get firewall.@defaults[0].flow_offloading 2>/dev/null)" = "1" ]; then
+		uci set firewall.@defaults[0].flow_offloading='0'
+		uci commit firewall; fw4 reload >/dev/null 2>&1
+		acts="$acts offload:off"
+	fi
+	/usr/bin/netsteer-p2p off >/dev/null 2>&1
+	acts="$acts p2p:off"
+	echo "$acts"
+}
+
+apply_p2p() {
+	local ip="${2:-$(uci -q get netsteer.p2p.dest_ip 2>/dev/null || echo 192.168.11.175)}"
+	apply_standard >/dev/null
+	/usr/bin/netsteer-p2p on "$ip" >/dev/null 2>&1
+	echo "sqm:cake-on offload:off p2p:on($ip)"
+}
+
+apply_throughput() {
+	local acts=""
+	sec=$(sqm_migrate)
+	uci set sqm.$sec.enabled='0'
+	uci commit sqm; /etc/init.d/sqm stop >/dev/null 2>&1
+	acts="$acts sqm:off"
+	if [ "$(uci -q get firewall.@defaults[0].flow_offloading 2>/dev/null)" != "1" ]; then
+		uci set firewall.@defaults[0].flow_offloading='1'
+		uci commit firewall; fw4 reload >/dev/null 2>&1
+		acts="$acts offload:on"
+	fi
+	echo "$acts"
+}
+
+apply_latency() {
+	local acts=""
+	local sec dl ul base_dl base_ul
+	sec=$(sqm_migrate)
+	uci set sqm.$sec.enabled='1'
+	uci set sqm.$sec.script='layer_cake.qos'
+	uci set sqm.$sec.qdisc='cake'
+	# 带宽基值: 首次进 latency 时存档真实带宽, 之后永远以存档为基 (防 ×0.9 累乘腐蚀)
+	base_dl=$(uci -q get netsteer.sqm_base.download 2>/dev/null)
+	base_ul=$(uci -q get netsteer.sqm_base.upload 2>/dev/null)
+	if [ -z "$base_dl" ] || [ -z "$base_ul" ]; then
+		base_dl=$(uci -q get sqm.$sec.download 2>/dev/null || echo 900000)
+		base_ul=$(uci -q get sqm.$sec.upload 2>/dev/null || echo 48000)
+		uci set netsteer.sqm_base='sqm_base'
+		uci set netsteer.sqm_base.download="$base_dl"
+		uci set netsteer.sqm_base.upload="$base_ul"
+		uci commit netsteer
+	fi
+	dl=$(( base_dl * 9 / 10 )); ul=$(( base_ul * 9 / 10 ))
+	uci set sqm.$sec.download="$dl"
+	uci set sqm.$sec.upload="$ul"
+	uci commit sqm; /etc/init.d/sqm restart >/dev/null 2>&1
+	acts="$acts sqm:layer_cake(${dl}/${ul})"
+	[ "$(uci -q get firewall.@defaults[0].flow_offloading 2>/dev/null)" = "1" ] && {
+		uci set firewall.@defaults[0].flow_offloading='0'
+		uci commit firewall; fw4 reload >/dev/null 2>&1
+		acts="$acts offload:off"
+	}
+	echo "$acts"
+}
+
+dep_have() { # dep_have sqm_scripts|kmod_cake → rc 0=有
+	case "$1" in
+		sqm_scripts) [ -f /usr/lib/sqm/run.sh ] ;;
+		kmod_cake) grep -q '^sch_cake' /proc/modules 2>/dev/null ;;
+		*) return 0 ;;
+	esac
+}
+
+require_deps() { # 缺依赖拒绝应用 (防半应用: sqm_migrate 会凭空造配置)
+	case "$1" in
+		standard|p2p|latency)
+			dep_have sqm_scripts || { echo "ERROR: mode '$1' needs sqm-scripts (apk add sqm-scripts)" >&2; exit 1; }
+			dep_have kmod_cake || { echo "ERROR: mode '$1' needs kmod-sch-cake (apk add kmod-sch-cake)" >&2; exit 1; }
+			;;
+	esac
+}
+
+require_deps "${1:-}"
+
+apply_off() { # 停用全部 netsteer 优化, 回到系统默认 (供 A/B 基线对比); 记住 prev 供一键回开
+	local acts=""
+	local cur
+	cur="$(uci -q get netsteer.scenario.mode 2>/dev/null)"
+	[ -n "$cur" ] && [ "$cur" != "off" ] && uci set netsteer.scenario.prev="$cur"
+	# SQM 关 (保留配置, 只停用)
+	local sec
+	sec=$(uci -q show sqm 2>/dev/null | grep -E '=queue$|=sqm$' | head -1 | cut -d. -f2 | cut -d= -f1)
+	if [ -n "$sec" ] && [ "$(uci -q get sqm.$sec.enabled 2>/dev/null)" != "0" ]; then
+		uci set sqm.$sec.enabled='0'
+		uci commit sqm; /etc/init.d/sqm stop >/dev/null 2>&1
+		acts="$acts sqm:off"
+	fi
+	# 分核清零 (RPS/XPS/IRQ 恢复全核默认)
+	if netsteer-apply clear >/dev/null 2>&1; then
+		acts="$acts rps-irq:default"
+	fi
+	# P2P 直通关
+	netsteer-p2p off >/dev/null 2>&1
+	acts="$acts p2p:off"
+	echo "$acts"
+}
+
+# v1.22.1: 档位变更前自动快照 (auto 5min 去重; 只读分支跳过) — 快照动作本身即持久审计记录
+case "${1:-}" in
+	list|status|"") ;;
+	*) /usr/bin/netsteer-snapshot auto "mode-${1:-}" >/dev/null 2>&1 ;;
+esac
+
+case "${1:-}" in
+	off)
+		ACTS=$(apply_off)
+		uci set netsteer.scenario='scenario' 2>/dev/null
+		uci set netsteer.scenario.mode='off'
+		uci commit netsteer 2>/dev/null
+		log "mode=off applied: $ACTS"
+		echo "{\"mode\":\"off\",\"actions\":\"$ACTS\"}"
+		;;
+	steering)
+		ACTS=""
+		if [ "$(uci -q get sqm.@queue[0].enabled 2>/dev/null)" != "0" ] && uci -q show sqm >/dev/null 2>&1; then
+			sec=$(uci -q show sqm 2>/dev/null | grep -E "=queue$|=sqm$" | head -1 | cut -d. -f2 | cut -d= -f1)
+			[ -n "$sec" ] && { uci set sqm.$sec.enabled='0'; uci commit sqm; /etc/init.d/sqm stop >/dev/null 2>&1; ACTS="$ACTS sqm:off"; }
+		fi
+		netsteer-apply preset balanced >/dev/null 2>&1 || netsteer-apply auto >/dev/null 2>&1
+		ACTS="$ACTS steering:balanced"
+		uci set netsteer.scenario='scenario' 2>/dev/null
+		uci set netsteer.scenario.mode='steering'
+		uci commit netsteer 2>/dev/null
+		log "mode=steering applied:$ACTS"
+		echo "{\"mode\":\"steering\",\"actions\":\"$ACTS\"}"
+		;;
+	standard|p2p|throughput|latency)
+		case "$1" in
+			standard)   ACTS=$(apply_standard) ;;
+			p2p)        ACTS=$(apply_p2p "$@") ;;
+			throughput) ACTS=$(apply_throughput) ;;
+			latency)    ACTS=$(apply_latency) ;;
+		esac
+		uci set netsteer.scenario='scenario' 2>/dev/null
+		uci set netsteer.scenario.mode="$1"
+		uci commit netsteer 2>/dev/null
+		log "mode=$1 applied: $ACTS"
+		( sleep 2; exec /usr/bin/netsteer-bench bg ) >/dev/null 2>&1 </dev/null &
+		echo "{\"mode\":\"$1\",\"actions\":\"$ACTS\"}"
+		;;
+	list)
+		echo "steering standard p2p throughput latency off"
+		;;
+	status)
+		echo "{\"mode\":\"$(uci -q get netsteer.scenario.mode 2>/dev/null || echo off)\",\"prev\":\"$(uci -q get netsteer.scenario.prev 2>/dev/null || echo p2p)\"}"
+		;;
+	*)
+		echo "Usage: netsteer-mode {steering|standard|p2p|throughput|latency|off} [p2p_ip]" >&2
+		echo "       netsteer-mode list" >&2
+		exit 1
+		;;
+esac
