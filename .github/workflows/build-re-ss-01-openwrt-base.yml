@@ -308,7 +308,7 @@ jobs:
           # landed in the kernel .config and that the FIT still fits the
           # 6144k kernel slot (a bigger FIT would push factory rootfs past
           # its pad-to offset and brick the factory layout).
-          kcfg=$(find build_dir -maxdepth6 -name .config -path '*linux-6.12*' | head -1)
+          kcfg=$(find build_dir -maxdepth 6 -name .config -path '*linux-6.12*' | head -1)
           if [ -z "$kcfg" ] || ! grep -q '^CONFIG_COMPAT=y' "$kcfg"; then
             echo "::error::CONFIG_COMPAT not enabled (kcfg=$kcfg)"
             exit 1
