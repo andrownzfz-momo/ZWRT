@@ -57,4 +57,28 @@ grep -q '("Pass Wall"), -20)' "$PW" || { echo "::error::passwall menu order patc
 sed -i '0,/"order": *30/s//"order": -10/' "$MD"
 grep -q '"order": -10' "$MD" || { echo "::error::mosdns menu order patch failed"; exit 1; }
 
+# --- Kernel config completeness: olddefconfig after .config assembly ---
+# CONFIG_COMPAT=y (adbyby armv7) newly exposes symbols that the config
+# fragments never wrote a value for (COMPAT_ALIGNMENT_FIXUPS, ...); the
+# build-stage syncconfig then prompts for them interactively ("Restart
+# config...") and dies in CI. olddefconfig fills new symbols with their
+# defaults, no prompting. Idempotent: ZWRT's own include/ already carries
+# the line; the owrt line grafts stock openwrt/include/ which does not.
+KD=include/kernel-defaults.mk
+if ! grep -q 'olddefconfig' "$KD"; then
+	python3 - "$KD" <<'PYEOF'
+import re, sys
+p = sys.argv[1]
+s = open(p).read()
+m = re.search(r'([ \t]+)cp \$\(LINUX_DIR\)/\.config\.set \$\(LINUX_DIR\)/\.config\.prev; \\\n', s)
+if not m:
+    print(f"::error::olddefconfig anchor missing in {p}")
+    sys.exit(1)
+s = s[:m.end()] + m.group(1) + "$(_SINGLE) $(KERNEL_MAKE) olddefconfig; \\\n" + s[m.end():]
+open(p, "w").write(s)
+print(f"patched {p}: olddefconfig added after .config copy")
+PYEOF
+fi
+grep -q 'olddefconfig' "$KD" || { echo "::error::olddefconfig missing in $KD"; exit 1; }
+
 echo "diy-part2: .config ready"
