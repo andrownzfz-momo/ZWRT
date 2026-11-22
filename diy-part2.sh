@@ -81,4 +81,16 @@ PYEOF
 fi
 grep -q 'olddefconfig' "$KD" || { echo "::error::olddefconfig missing in $KD"; exit 1; }
 
+# --- apk rejects the upstream adbyby-plus version string ---
+# kongfl888's luci-app-adbyby-plus ships PKG_VERSION:=2.0K5 and apk
+# mkpkg dies with "package version is invalid" (Error 99). apk's version
+# grammar is digit{.digit}...{letter}{_suf}...{~hash}{-r#}: uppercase is
+# rejected outright, and a naive lowercase (2.0k5) is ALSO invalid because
+# a digit may not follow the single letter. Force a plain numeric version
+# instead; fail loudly if the feed drops the variable.
+AD=feeds/adbybyplus/luci-app-adbyby-plus/Makefile
+[ -f "$AD" ] || { echo "::error::missing $AD"; exit 1; }
+sed -i 's/^PKG_VERSION:=.*/PKG_VERSION:=2.0.5/' "$AD"
+grep -q '^PKG_VERSION:=2.0.5$' "$AD" || { echo "::error::adbyby-plus PKG_VERSION patch failed"; exit 1; }
+
 echo "diy-part2: .config ready"
