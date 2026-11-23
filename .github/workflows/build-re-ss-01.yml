@@ -110,6 +110,13 @@ jobs:
             CONFIG_PACKAGE_kmod-usb-net-qmi-wwan-fibocom \
             CONFIG_PACKAGE_kmod-usb-serial-qualcomm \
             CONFIG_PACKAGE_kmod-usb-serial-sierrawireless \
+            CONFIG_PACKAGE_usb-modeswitch \
+            CONFIG_PACKAGE_comgt \
+            CONFIG_PACKAGE_comgt-ncm \
+            CONFIG_PACKAGE_chat \
+            CONFIG_PACKAGE_luci-proto-3g \
+            CONFIG_PACKAGE_luci-proto-ncm \
+            CONFIG_PACKAGE_luci-app-3ginfo-lite \
             CONFIG_PACKAGE_wpad-openssl \
             CONFIG_PACKAGE_apk-openssl \
             CONFIG_PACKAGE_dockerd \

@@ -96,8 +96,8 @@ rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wg
 #### 3. 下载源码与配置
 ```bash
 # 克隆源码
-git clone -b 25.12-nss --depth 1 --single-branch https://github.com/LiBwrt/LibWrt.git libwrt
-cd libwrt
+git clone -b 25.12-nss --depth 1 --single-branch https://github.com/andrownzfz-momo/ZWRT.git zwrt
+cd zwrt
 
 # 更新 feeds
 ./scripts/feeds update -a && ./scripts/feeds install -a
@@ -118,7 +118,7 @@ make -j1 V=s
 
 #### 5. 二次编译
 ```bash
-cd libwrt
+cd zwrt
 
 # 拉取最新代码
 git fetch && git reset --hard origin/25.12-nss
@@ -148,4 +148,4 @@ make -j$(nproc) V=s
 ### ⭐ 支持项目
 **如果您喜欢这个项目，请在 GitHub 上点个 Star 支持一下！**
 
-[![Stargazers over time](https://starchart.cc/LiBwrt-op/openwrt-6.x.svg?variant=adaptive)](https://starchart.cc/LiBwrt-op/openwrt-6.x)
+[![Stargazers over time](https://starchart.cc/andrownzfz-momo/ZWRT.svg?variant=adaptive)](https://starchart.cc/andrownzfz-momo/ZWRT)

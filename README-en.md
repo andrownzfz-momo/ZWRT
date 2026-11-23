@@ -98,8 +98,8 @@ rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wg
 #### 3. Download Source Code and Configure
 ```bash
 # Clone the source code
-git clone -b 25.12-nss --depth 1 --single-branch https://github.com/LiBwrt/LibWrt.git libwrt
-cd libwrt
+git clone -b 25.12-nss --depth 1 --single-branch https://github.com/andrownzfz-momo/ZWRT.git zwrt
+cd zwrt
 
 # Update feeds
 ./scripts/feeds update -a && ./scripts/feeds install -a
@@ -119,7 +119,7 @@ After compilation, the firmware will be in the `bin/targets` directory.
 
 #### 5. Recompiling
 ```bash
-cd libwrt
+cd zwrt
 
 # Pull the latest code
 git fetch && git reset --hard origin/25.12-nss
@@ -149,4 +149,4 @@ make -j$(nproc) V=s
 ### ⭐ Support This Project
 **If you like this project, please give it a Star on GitHub to show your support!**
 
-[![Stargazers over time](https://starchart.cc/LiBwrt-op/openwrt-6.x.svg?variant=adaptive)](https://starchart.cc/LiBwrt-op/openwrt-6.x)
+[![Stargazers over time](https://starchart.cc/andrownzfz-momo/ZWRT.svg?variant=adaptive)](https://starchart.cc/andrownzfz-momo/ZWRT)

@@ -18,7 +18,7 @@ grep -q '^CONFIG_PACKAGE_apk-openssl=y' .config ||
 # Official OpenWrt 25.12 has USE_APK=y which *implies* apk-mbedtls; together
 # with our apk-openssl selection that would ship two apk providers and break
 # image assembly. `imply` is weak, so an explicit =n wins on both trees
-# (unknown symbol on LiBwrt is dropped silently by defconfig). Keeps the
+# (unknown symbol on the ZWRT tree is dropped silently by defconfig). Keeps the
 # single-provider apk-openssl setup QWRT shipped.
 grep -q '^CONFIG_PACKAGE_apk-mbedtls=n' .config ||
 	echo 'CONFIG_PACKAGE_apk-mbedtls=n' >> .config
@@ -92,5 +92,22 @@ AD=feeds/adbybyplus/luci-app-adbyby-plus/Makefile
 [ -f "$AD" ] || { echo "::error::missing $AD"; exit 1; }
 sed -i 's/^PKG_VERSION:=.*/PKG_VERSION:=2.0.5/' "$AD"
 grep -q '^PKG_VERSION:=2.0.5$' "$AD" || { echo "::error::adbyby-plus PKG_VERSION patch failed"; exit 1; }
+
+# --- ZWRT brand + firmware filename prefix (idempotent, both trees) ---
+# The owrt line runs this inside openwrt/ against stock files (OpenWrt
+# defaults); the main line is already ZWRT in-tree, so the seds are no-ops.
+sed -i 's/,OpenWrt)$/,ZWRT)/g' include/version.mk
+grep -q ',ZWRT)' include/version.mk || { echo "::error::version.mk brand patch failed"; exit 1; }
+
+sed -i "s/hostname='OpenWrt'/hostname='ZWRT'/g" package/base-files/files/bin/config_generate
+grep -q "hostname='ZWRT'" package/base-files/files/bin/config_generate || { echo "::error::hostname brand patch failed"; exit 1; }
+
+sed -i 's/"OpenWrt"}/"ZWRT"}/g' package/network/config/wifi-scripts/files/lib/wifi/mac80211.uc
+grep -q '"ZWRT"}' package/network/config/wifi-scripts/files/lib/wifi/mac80211.uc || { echo "::error::SSID brand patch failed"; exit 1; }
+
+# sanitize() lowercases VERSION_DIST, so the mixed-case filename prefix
+# cannot ride on CONFIG_VERSION_DIST; rewrite IMG_PREFIX directly.
+sed -i 's|^IMG_PREFIX:=.*|IMG_PREFIX:=JDcloud-AX1800pro-ZWRT-$(IMG_PREFIX_VERNUM)$(IMG_PREFIX_VERCODE)$(IMG_PREFIX_EXTRA)$(BOARD)-$(SUBTARGET)|' include/image.mk
+grep -q '^IMG_PREFIX:=JDcloud-AX1800pro-ZWRT-' include/image.mk || { echo "::error::IMG_PREFIX patch failed"; exit 1; }
 
 echo "diy-part2: .config ready"

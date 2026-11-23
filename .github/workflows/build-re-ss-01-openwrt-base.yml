@@ -1,9 +1,9 @@
 #
-# ZWRT JDCloud RE-SS-01 firmware builder — OpenWrt base + LiBwrt NSS dirs + kiddin9 feed
+# ZWRT JDCloud RE-SS-01 firmware builder — OpenWrt base + ZWRT NSS dirs + kiddin9 feed
 #
 # Kwrt-style recipe (https://github.com/kiddin9/Kwrt):
 #   1. official openwrt/openwrt @ openwrt-25.12 as the base tree
-#   2. LiBwrt/openwrt-6.x @ 25.12-nss directories transplanted on top
+#   2. ZWRT @ 25.12-nss directories transplanted on top
 #      (= this repo's checkout at the same commit 6c363ce)
 #   3. kiddin9/op-packages appended as an extra feed, LAST so every
 #      already-proven package source keeps winning
@@ -13,7 +13,7 @@
 # packages the official feeds do not carry (passwall, aria2, fibocom, ...).
 # The base *tree* is still pure OpenWrt + the NSS/qualcommax overlay.
 #
-name: ZWRT RE-SS-01 Builder (OpenWrt + Kiddin9)
+name: ZWRT RE-SS-01 Builder (Kiddin9)
 
 on:
   workflow_dispatch:
@@ -126,13 +126,13 @@ jobs:
           PYEOF
           grep -n '@IMMORTALWRT' openwrt/include/download.mk openwrt/scripts/download.pl openwrt/scripts/projectsmirrors.json
 
-      - name: Transplant LiBwrt NSS directories
+      - name: Transplant ZWRT NSS directories
         run: |
           set -e
           # Directory-level replacement — same set Kwrt uses, plus the
           # base-tree packages QWRT's config needs (emortal/shellsync/
           # fullconenat-nft) and our Design theme + nssstatus packages.
-          # package/kernel/linux MUST come from LiBwrt too: its modules/*.mk
+          # package/kernel/linux MUST come from the ZWRT tree too: its modules/*.mk
           # carry the DEPENDS lines (e.g. ipt-ipopt -> kmod-nf-conntrack)
           # that match the grafted kernel config - official's copies lack
           # them and the kmod dependency check fails packaging (run
@@ -270,6 +270,13 @@ jobs:
             CONFIG_PACKAGE_luci-app-homeproxy \
             CONFIG_PACKAGE_kmod-usb-serial-qualcomm \
             CONFIG_PACKAGE_kmod-usb-serial-sierrawireless \
+            CONFIG_PACKAGE_usb-modeswitch \
+            CONFIG_PACKAGE_comgt \
+            CONFIG_PACKAGE_comgt-ncm \
+            CONFIG_PACKAGE_chat \
+            CONFIG_PACKAGE_luci-proto-3g \
+            CONFIG_PACKAGE_luci-proto-ncm \
+            CONFIG_PACKAGE_luci-app-3ginfo-lite \
             CONFIG_PACKAGE_dockerd \
             CONFIG_PACKAGE_luci-app-dockerman \
             CONFIG_PACKAGE_ttyd \
@@ -356,7 +363,7 @@ jobs:
         uses: actions/upload-artifact@v5
         if: steps.organize.outputs.status == 'success' && !cancelled()
         with:
-          name: OpenWrtKiddin9_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+          name: ZWRT_Kiddin9_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
           path: ${{ env.FIRMWARE }}
 
       - name: Generate release tag
@@ -365,7 +372,7 @@ jobs:
         run: |
           echo "release_tag=$(date +"%Y.%m.%d-%H%M")-owrt" >> $GITHUB_OUTPUT
           touch release.txt
-          echo "ZWRT JDCloud RE-SS-01 firmware (OpenWrt base + Kiddin9 feed)" >> release.txt
+          echo "ZWRT JDCloud RE-SS-01 firmware (Kiddin9 feed)" >> release.txt
           echo "status=success" >> $GITHUB_OUTPUT
 
       - name: Upload firmware to release
