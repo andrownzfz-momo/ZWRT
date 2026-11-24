@@ -4,6 +4,7 @@
 		"read": {
 			"file": {
 				"/bin/sync": [ "exec" ],
+				"/bin/cat": [ "exec" ],
 				"/sbin/sysctl": [ "exec" ]
 			}
 		}

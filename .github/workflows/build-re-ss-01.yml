@@ -129,6 +129,7 @@ jobs:
             CONFIG_PACKAGE_luci-app-hd-idle \
             CONFIG_PACKAGE_adbyby \
             CONFIG_PACKAGE_luci-app-adbyby-plus \
+            CONFIG_PACKAGE_luci-i18n-adbyby-plus-zh-cn \
             CONFIG_PACKAGE_clashoo \
             CONFIG_PACKAGE_luci-app-clashoo \
             CONFIG_PACKAGE_luci-app-netsteer \

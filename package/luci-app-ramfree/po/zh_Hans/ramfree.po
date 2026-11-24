@@ -10,3 +10,15 @@ msgstr ""
 
 msgid "Freeping Memory Cache"
 msgstr "释放内存"
+
+msgid "MemAvailable before"
+msgstr "释放前可用内存"
+
+msgid "MemAvailable after"
+msgstr "释放后可用内存"
+
+msgid "Freed"
+msgstr "本次释放"
+
+msgid "Back to overview"
+msgstr "返回概览"

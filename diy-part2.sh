@@ -129,4 +129,96 @@ TA=feeds/turboacc/luci-app-turboacc/Makefile
 sed -i 's/bool "Include BBR CCA"/bool "Enable BBR CCA"/' "$TA"
 grep -q 'bool "Enable BBR CCA"' "$TA" || { echo "::error::BBR CCA prompt rename failed"; exit 1; }
 
+# --- adbyby-plus: po/zh-cn -> po/zh_Hans so the Chinese translation builds ---
+# luci.mk only emits luci-i18n-* packages for po/* dirs that are keys in its
+# LUCI_LANG table; "zh-cn" is NOT a key (zh_Hans is, with zh-cn as an alias),
+# so the feed's legacy po/zh-cn produced no i18n package at all and the seed's
+# CONFIG_PACKAGE_luci-i18n-adbyby-plus-zh-cn=y was silently dropped by
+# defconfig - the UI stayed English. Renaming makes it follow the exact same
+# path as luci-i18n-base-zh-cn etc. Idempotent.
+ABPO=feeds/adbybyplus/luci-app-adbyby-plus/po
+if [ -d "$ABPO/zh-cn" ] && [ ! -d "$ABPO/zh_Hans" ]; then
+	mv "$ABPO/zh-cn" "$ABPO/zh_Hans"
+fi
+[ -f "$ABPO/zh_Hans/adbyby.po" ] || { echo "::error::adbyby zh_Hans/adbyby.po missing"; exit 1; }
+
+# Force scan.mk to re-dump this package: `feeds install` runs prepare-tmpinfo
+# (get_installed -> make prepare-tmpinfo) BEFORE diy-part2, so tmp/info/ may
+# already hold a DUMP=1 taken while po/ was still named zh-cn (no i18n symbol
+# generated - zh-cn is not a LUCI_LANG key). Renaming the po dir does NOT
+# touch the Makefile, so scan.mk's mtime rule would keep that stale dump and
+# the next defconfig would silently drop
+# CONFIG_PACKAGE_luci-i18n-adbyby-plus-zh-cn. Deleting the per-package dump,
+# the merged metadata and the generated Kconfig forces a fresh parse (with
+# po/zh_Hans) at the next `make defconfig`. Harmless if tmp/ does not exist.
+rm -f tmp/.packageinfo tmp/.config-package.in tmp/info/.packageinfo-*adbybyplus*
+
+# --- 3ginfo-lite: no-modem JSON must not crash the 蜂窝网络 page ---
+# With no modem attached 3ginfo.sh prints {"error":"Device not found"};
+# stock SIMdata() does sdata.simslot.length on that object and the whole view
+# dies with "TypeError: Cannot read properties of undefined (reading 'length')".
+# Guard the parse, default missing fields, and surface the script error as a
+# notification instead of a blank crash page. Anchors verified unique.
+G3=feeds/luci/applications/luci-app-3ginfo-lite/htdocs/luci-static/resources/view/modem/3gdetail.js
+[ -f "$G3" ] || { echo "::error::3gdetail.js missing: $G3"; exit 1; }
+if ! grep -q "sdata\[k\] == null" "$G3"; then
+python3 - "$G3" <<'PYEOF'
+import sys
+p = sys.argv[1]
+s = open(p, encoding="utf-8").read()
+
+def rep(s, old, new):
+    n = s.count(old)
+    if n != 1:
+        print(f"::error::anchor count={n} (want 1) in {p}: {old!r}")
+        sys.exit(1)
+    return s.replace(old, new, 1)
+
+s = rep(s, "\tvar sdata = JSON.parse(data);\n",
+    "\tvar sdata = {};\n"
+    "\ttry { sdata = JSON.parse(data) || {}; } catch (e) { sdata = {}; }\n"
+    "\t['simslot', 'imsi', 'iccid', 'imei'].forEach(function(k) {\n"
+    "\t\tif (sdata[k] == null) sdata[k] = '';\n"
+    "\t});\n")
+# Preserve the original (always-false for present imei) semantics; only stop
+# the crash when the script omitted imei entirely.
+s = rep(s, "if (!json.imei.length > 2) {",
+    "if (json.imei == null || !json.imei.length > 2) {")
+s = rep(s, "var json = JSON.parse(data);",
+    "var json = JSON.parse(data);\n"
+    "\t\t\tif (json && json.error) {\n"
+    "\t\t\t\tui.addNotification(null, E('p', {}, json.error), 'error');\n"
+    "\t\t\t}")
+open(p, "w", encoding="utf-8", newline="").write(s)
+print(f"patched {p}: no-modem JSON guards + error notification")
+PYEOF
+fi
+grep -q "sdata\[k\] == null" "$G3" || { echo "::error::3gdetail guard missing after patch"; exit 1; }
+
+# --- dockerman: hide the Env row on the container detail page ---
+# The detail view printed every container env var (often secrets); user asked
+# to not display it. The create form keeps its Env input - only the read-only
+# display row is removed. Anchors verified unique. Idempotent.
+DM=feeds/luci/applications/luci-app-dockerman/htdocs/luci-static/resources/view/dockerman/container.js
+[ -f "$DM" ] || { echo "::error::dockerman container.js missing: $DM"; exit 1; }
+if grep -q "form.DummyValue, 'env'" "$DM"; then
+python3 - "$DM" <<'PYEOF'
+import sys
+p = sys.argv[1]
+s = open(p, encoding="utf-8-sig").read()
+start = s.find("o = s.taboption('info', form.DummyValue, 'env', _('Env'));")
+end = s.find("o = s.taboption('info', form.DummyValue, 'ports'")
+if start < 0 or end < 0 or end <= start:
+    print(f"::error::env row anchors not found in {p}")
+    sys.exit(1)
+s = s[:start] + s[end:]
+open(p, "w", encoding="utf-8", newline="").write(s)
+print(f"patched {p}: Env display row removed ({end - start} bytes)")
+PYEOF
+fi
+if grep -q "form.DummyValue, 'env'" "$DM"; then
+	echo "::error::dockerman env row still present after patch"
+	exit 1
+fi
+
 echo "diy-part2: .config ready"
