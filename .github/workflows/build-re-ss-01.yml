@@ -100,6 +100,8 @@ jobs:
             CONFIG_PACKAGE_luci-app-homeproxy \
             CONFIG_PACKAGE_luci-app-nssstatus \
             CONFIG_PACKAGE_luci-app-turboacc \
+            CONFIG_PACKAGE_luci-app-turboacc_INCLUDE_BBR_CCA \
+            CONFIG_PACKAGE_kmod-tcp-bbr \
             CONFIG_PACKAGE_luci-app-wolplus \
             CONFIG_PACKAGE_luci-app-passwall \
             CONFIG_PACKAGE_shellsync \

@@ -110,4 +110,23 @@ grep -q '"ZWRT"}' package/network/config/wifi-scripts/files/lib/wifi/mac80211.uc
 sed -i 's|^IMG_PREFIX:=.*|IMG_PREFIX:=JDcloud-AX1800pro-ZWRT-$(IMG_PREFIX_VERNUM)$(IMG_PREFIX_VERCODE)$(IMG_PREFIX_EXTRA)$(BOARD)-$(SUBTARGET)|' include/image.mk
 grep -q '^IMG_PREFIX:=JDcloud-AX1800pro-ZWRT-' include/image.mk || { echo "::error::IMG_PREFIX patch failed"; exit 1; }
 
+# --- cellular menu: rename 3ginfo-lite top menu to 蜂窝网络 ---
+# luci-app-3ginfo-lite ships the only modem status menu; its stock title is
+# "Modem" (zh: 模块). Rewrite the menu.d title so the LuCI nav bar shows
+# 蜂窝网络. Runs after feeds install on both lines (cwd = tree root / openwrt/).
+MENU=feeds/luci/applications/luci-app-3ginfo-lite/root/usr/share/luci/menu.d/luci-app-3ginfo-lite.json
+[ -f "$MENU" ] || { echo "::error::3ginfo-lite menu.d missing: $MENU"; exit 1; }
+sed -i 's/"title": "Modem"/"title": "蜂窝网络"/' "$MENU"
+grep -q '"title": "蜂窝网络"' "$MENU" || { echo "::error::cellular menu rename failed"; exit 1; }
+
+# --- turboacc: rename menuconfig prompt "Include BBR CCA" -> "Enable BBR CCA" ---
+# chenmozhijin's turboacc (pinned feed) exposes the option as "Include BBR CCA";
+# rename the prompt so menuconfig literally offers "Enable BBR CCA". Prompt-only
+# change - the Kconfig symbol name is untouched, so the seed config line
+# CONFIG_PACKAGE_luci-app-turboacc_INCLUDE_BBR_CCA=y keeps working.
+TA=feeds/turboacc/luci-app-turboacc/Makefile
+[ -f "$TA" ] || { echo "::error::turboacc Makefile missing: $TA"; exit 1; }
+sed -i 's/bool "Include BBR CCA"/bool "Enable BBR CCA"/' "$TA"
+grep -q 'bool "Enable BBR CCA"' "$TA" || { echo "::error::BBR CCA prompt rename failed"; exit 1; }
+
 echo "diy-part2: .config ready"
