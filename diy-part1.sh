@@ -17,6 +17,8 @@
 #       which is why luci-app-wolplus never reached the image)
 #   feeds: clashoo                      -> kenzok8/openwrt-clashoo (subdir layout)
 #   feeds: adbybyplus                   -> kongfl888/luci-app-adbyby-plus-lite
+#   feeds: istore                       -> linkease/istore (iStore app store, user request;
+#       official integration: src-git ...;main, packages live under luci/ subdir)
 #   package/luci-app-nssstatus         -> shadowvershh/luci-app-nssstatus
 #       VENDORED into package/ (no feed line): its Makefile sits at the
 #       repo root, which the feeds index generator cannot scan - both
@@ -47,6 +49,7 @@ src-git mosdns_luci https://github.com/sbwml/luci-app-mosdns.git
 src-git turboacc https://github.com/chenmozhijin/turboacc.git;luci
 src-git clashoo https://github.com/kenzok8/openwrt-clashoo.git
 src-git adbybyplus https://github.com/kongfl888/luci-app-adbyby-plus-lite.git
+src-git istore https://github.com/linkease/istore;main
 EOF
 
 echo "diy-part1: feeds.conf.default updated"
