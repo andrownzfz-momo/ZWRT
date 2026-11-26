@@ -248,6 +248,11 @@ jobs:
         id: package
         working-directory: openwrt
         run: |
+          # Force a fresh DUMP of the istore packages: a failed DUMP leaves a
+          # stub info file (Source-Makefile only, no Package block) behind, and
+          # because the Makefile timestamp never changes that stub is reused by
+          # every later scan - the package then silently vanishes from Kconfig.
+          rm -f tmp/info/.packageinfo-*istore*
           make defconfig
           # Fail fast if the official base silently dropped a symbol the
           # config needs (defconfig discards unknown CONFIG_PACKAGE_* lines).
@@ -299,6 +304,23 @@ jobs:
           done
           if [ -n "$missing" ]; then
             echo "::error::Config symbols missing after defconfig:$missing"
+            echo "=== istore diagnostics ==="
+            echo "--- symlink dir ---"
+            ls -la package/feeds/istore/ 2>&1 || true
+            echo "--- FILELIST entries mentioning istore ---"
+            grep -H 'istore' tmp/info/.files-packageinfo-* 2>/dev/null || echo "(istore absent from FILELIST)"
+            echo "--- per-package info files ---"
+            ls -la tmp/info/.packageinfo-*istore* 2>&1 || true
+            for f in tmp/info/.packageinfo-*istore*; do
+              if [ -f "$f" ]; then echo "== $f =="; cat "$f"; fi
+            done
+            echo "--- istore blocks in tmp/.packageinfo ---"
+            grep -n -B1 -A15 'luci-app-store' tmp/.packageinfo 2>/dev/null || echo "(luci-app-store absent from tmp/.packageinfo)"
+            echo "--- generated Kconfig block ---"
+            grep -n -A25 'config PACKAGE_luci-app-store' tmp/.config-package.in 2>/dev/null || echo "(absent from tmp/.config-package.in)"
+            echo "--- DUMP errors ---"
+            find logs -name 'dump.txt' -path '*istore*' -print -exec cat {} \; 2>/dev/null
+            echo "(end istore dump.txt search)"
             exit 1
           fi
           echo "all critical symbols resolved"
