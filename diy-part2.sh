@@ -221,4 +221,25 @@ if grep -q "form.DummyValue, 'env'" "$DM"; then
 	exit 1
 fi
 
+# --- fullcone: repair UCI after flash/upgrade ---
+# Root cause of turboacc's "FullCone NAT: NOT RUNNING": fw4 renders
+# fullcone rules only when firewall.defaults.fullcone=1, and turboacc's
+# init rewrites that value on EVERY boot from turboacc.config.fullcone_nat
+# (config_get falls back to "0" when the option is absent). A
+# settings-preserved config from older firmware therefore keeps forcing
+# fullcone OFF, nft_fullcone never gets referenced, and the status page
+# reads refcnt=0 -> NOT RUNNING. uci-defaults run once after each flash
+# (deleted on success) and re-assert the firmware default (=on).
+mkdir -p files/etc/uci-defaults
+cat > files/etc/uci-defaults/99-zwrt-fullcone <<'UCIEOF'
+#!/bin/sh
+# ZWRT: firmware default = FullCone NAT on; re-assert after (re)flash.
+[ -n "$(uci -q get turboacc.config)" ] || uci -q set turboacc.config=turboacc
+[ -n "$(uci -q get firewall.@defaults[0])" ] || uci -q add firewall defaults >/dev/null
+uci -q set turboacc.config.fullcone_nat='1' &&
+uci -q set firewall.@defaults[0].fullcone='1' &&
+uci -q commit
+UCIEOF
+[ -f files/etc/uci-defaults/99-zwrt-fullcone ] || { echo "::error::fullcone uci-defaults write failed"; exit 1; }
+
 echo "diy-part2: .config ready"

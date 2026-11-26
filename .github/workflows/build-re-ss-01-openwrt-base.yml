@@ -132,6 +132,11 @@ jobs:
           # Directory-level replacement — same set Kwrt uses, plus the
           # base-tree packages QWRT's config needs (emortal/shellsync/
           # fullconenat-nft) and our Design theme + nssstatus packages.
+          # fullcone needs the USERSIDE trio too: firewall4 (renders the
+          # fullcone rules + defaults fullcone=1), nftables and libnftnl
+          # (parse the `fullcone` expression). Without them the official
+          # firewall silently ships fullcone-less and turboacc's status
+          # page shows "FullCone NAT: NOT RUNNING" forever.
           # package/kernel/linux MUST come from the ZWRT tree too: its modules/*.mk
           # carry the DEPENDS lines (e.g. ipt-ipopt -> kmod-nf-conntrack)
           # that match the grafted kernel config - official's copies lack
@@ -152,6 +157,9 @@ jobs:
             package/emortal \
             package/network/services/shellsync \
             package/network/utils/fullconenat-nft \
+            package/network/config/firewall4 \
+            package/network/utils/nftables \
+            package/libs/libnftnl \
             package/luci-theme-design \
             package/luci-app-nssstatus \
             package/adbyby \
@@ -163,6 +171,18 @@ jobs:
             mkdir -p "openwrt/$(dirname "$d")"
             cp -a "$d" "openwrt/$d"
             echo "grafted: $d"
+          done
+          # Fail loud if the fullcone USERSIDE trio did not land: without
+          # firewall4's fullcone template, nftables' fullcone expression
+          # and libnftnl's marshalling, fw4 can never render fullcone
+          # rules and turboacc's status page stays NOT RUNNING forever.
+          for p in \
+            package/network/config/firewall4/patches/001-firewall4-add-support-for-fullcone-nat.patch \
+            package/network/utils/nftables/patches/002-nftables-add-fullcone-expression-support.patch \
+            package/libs/libnftnl/patches/001-libnftnl-add-fullcone-expression-support.patch
+          do
+            [ -f "openwrt/$p" ] || { echo "::error::fullcone patch missing after graft: $p"; exit 1; }
+            echo "fullcone patch present: $p"
           done
           # File-level replacements (Kwrt wgets the same three files):
           # image-commands.mk  -> factory/sysupgrade helpers
