@@ -443,10 +443,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Keep the 3 newest releases; delete older ones and their tags.
-          # gh CLI replaces dev-drprasad/delete-older-releases@master,
+          # Keep the 9 newest releases (3 build lines x 3 each); delete older
+          # ones and their tags. gh CLI replaces dev-drprasad/delete-older-releases@master,
           # which runs on node20 and warned on every build.
-          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[3:] | .[] | .tag_name' |
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[9:] | .[] | .tag_name' |
             while read -r tag; do
               [ -n "$tag" ] || continue
               gh release delete "$tag" --yes --cleanup-tag || true

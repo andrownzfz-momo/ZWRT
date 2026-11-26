@@ -107,8 +107,12 @@ grep -q '"ZWRT"}' package/network/config/wifi-scripts/files/lib/wifi/mac80211.uc
 
 # sanitize() lowercases VERSION_DIST, so the mixed-case filename prefix
 # cannot ride on CONFIG_VERSION_DIST; rewrite IMG_PREFIX directly.
-sed -i 's|^IMG_PREFIX:=.*|IMG_PREFIX:=JDcloud-AX1800pro-ZWRT-$(IMG_PREFIX_VERNUM)$(IMG_PREFIX_VERCODE)$(IMG_PREFIX_EXTRA)$(BOARD)-$(SUBTARGET)|' include/image.mk
-grep -q '^IMG_PREFIX:=JDcloud-AX1800pro-ZWRT-' include/image.mk || { echo "::error::IMG_PREFIX patch failed"; exit 1; }
+# Prefix is overridable per build line: RE-SS-01 lines keep the device
+# brand default, the x86 line exports IMG_PREFIX_NAME=ZWRT-x86 (a PC
+# image must not carry the JDCloud router model name).
+IMG_PREFIX_NAME="${IMG_PREFIX_NAME:-JDcloud-AX1800pro-ZWRT}"
+sed -i "s|^IMG_PREFIX:=.*|IMG_PREFIX:=${IMG_PREFIX_NAME}-\$(IMG_PREFIX_VERNUM)\$(IMG_PREFIX_VERCODE)\$(IMG_PREFIX_EXTRA)\$(BOARD)-\$(SUBTARGET)|" include/image.mk
+grep -q "^IMG_PREFIX:=${IMG_PREFIX_NAME}-" include/image.mk || { echo "::error::IMG_PREFIX patch failed"; exit 1; }
 
 # --- cellular menu: rename 3ginfo-lite top menu to 蜂窝网络 ---
 # luci-app-3ginfo-lite ships the only modem status menu; its stock title is
