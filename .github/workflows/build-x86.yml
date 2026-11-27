@@ -135,6 +135,22 @@ jobs:
           do
             grep -q "^${s}=y" .config || missing="$missing $s"
           done
+          # Negative checks: qualcommax-only symbols must NOT leak into x86
+          for s in \
+            CONFIG_PACKAGE_kmod-qca-nss-drv \
+            CONFIG_PACKAGE_kmod-qca-nss-drv-wifi-meshmgr \
+            CONFIG_PACKAGE_kmod-qca-nss-ecm \
+            CONFIG_PACKAGE_kmod-qca-nss-dp \
+            CONFIG_PACKAGE_kmod-nssstatus \
+            CONFIG_PACKAGE_kmod-ath11k \
+            CONFIG_PACKAGE_ath11k-firmware-ipq6018 \
+            CONFIG_ATH11K_NSS_SUPPORT
+          do
+            if grep -q "^${s}=y" .config; then
+              echo "::error::Qualcommax-only symbol leaked into x86 config: $s"
+              exit 1
+            fi
+          done
           if [ -n "$missing" ]; then
             echo "::error::Config symbols missing after defconfig:$missing"
             echo "=== istore diagnostics ==="
@@ -173,15 +189,26 @@ jobs:
           # native amd64 binary). Verify the combined images exist and their
           # gzip streams decompress cleanly end to end.
           python3 - <<'PY'
-          import glob, gzip, os, sys
+          import glob, os, sys, zlib
           imgs = sorted(glob.glob('bin/targets/x86/64/*combined*.img.gz'))
           if not imgs:
               print('::error::no x86 combined image produced in bin/targets/x86/64')
               sys.exit(1)
           for f in imgs:
-              with gzip.open(f, 'rb') as fh:
-                  while fh.read(1 << 20):
-                      pass
+              # zlib decompressobj: the gzip stream may be followed by the
+              # append-metadata JSON tail (trailing data tolerated and
+              # ignored), a complete stream sets eof=True, CRC/isize errors
+              # raise - unlike gzip.open which rejects trailing data.
+              dec = zlib.decompressobj(16 + zlib.MAX_WBITS)
+              with open(f, 'rb') as fh:
+                  while True:
+                      chunk = fh.read(1 << 20)
+                      if not chunk:
+                          break
+                      dec.decompress(chunk)
+              if not dec.eof:
+                  print('::error::%s: gzip stream incomplete (truncated)' % f)
+                  sys.exit(1)
               print('%s: gzip OK (%d bytes)' % (f, os.path.getsize(f)))
           PY
           echo "status=success" >> $GITHUB_OUTPUT

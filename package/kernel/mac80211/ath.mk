@@ -399,6 +399,7 @@ define KernelPackage/ath11k/config
 
        config ATH11K_NSS_SUPPORT
                bool "Enable NSS WiFi offload"
+               depends on PACKAGE_kmod-ath11k
                select ATH11K_MEM_PROFILE_512M
                select PACKAGE_kmod-qca-nss-ecm
                default y

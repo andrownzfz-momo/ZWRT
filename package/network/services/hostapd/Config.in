@@ -33,11 +33,11 @@ config WPA_WOLFSSL
 
 config DRIVER_11AC_SUPPORT
 	bool
-	default n
+	default y
 
 config DRIVER_11AX_SUPPORT
 	bool
-	default n
+	default y
 	select WPA_MBO_SUPPORT
 
 config DRIVER_11BE_SUPPORT
