@@ -1,8 +1,11 @@
 #
-# ZWRT x86_64 firmware builder (soft-router / PC images)
-# Structure adapted from build-re-ss-01.yml (P3TERX Actions-OpenWrt lineage).
+# ZWRT x86_64 soft-router firmware builder - STANDALONE workflow.
+# Fully independent from the JDCloud RE-SS-01 lines (build-re-ss-01.yml /
+# build-re-ss-01-openwrt-base.yml): own config seed, own release tag
+# suffix (-x86), own release-pool cleanup. The JDCloud workflows never
+# touch -x86 releases and this one never touches theirs.
 #
-name: ZWRT x86 Builder
+name: ZWRT x86_64 soft-router builder
 
 on:
   workflow_dispatch:
@@ -245,7 +248,7 @@ jobs:
         run: |
           echo "release_tag=$(date +"%Y.%m.%d-%H%M")-x86" >> $GITHUB_OUTPUT
           touch release.txt
-          echo "ZWRT x86_64 firmware" >> release.txt
+          echo "ZWRT x86_64 soft-router firmware (standalone line)" >> release.txt
           echo "status=success" >> $GITHUB_OUTPUT
 
       - name: Upload firmware to release
@@ -270,9 +273,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Keep the 9 newest releases (3 build lines x 3 each); delete older
-          # ones and their tags. gh CLI replaces dev-drprasad/delete-older-releases@master.
-          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[9:] | .[] | .tag_name' |
+          # Own release pool: only -x86 releases belong to this line.
+          # Keep the 5 newest -x86 releases; never touch the JDCloud
+          # (no-suffix / -owrt) releases.
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[].tag_name' |
+            grep -- "-x86$" |
+            awk 'NR>5 {print}' |
             while read -r tag; do
               [ -n "$tag" ] || continue
               gh release delete "$tag" --yes --cleanup-tag || true

@@ -263,10 +263,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Keep the 9 newest releases (3 build lines x 3 each); delete older
-          # ones and their tags. gh CLI replaces dev-drprasad/delete-older-releases@master,
-          # which runs on node20 and warned on every build.
-          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[9:] | .[] | .tag_name' |
+          # Own release pool: only no-suffix tags belong to this line;
+          # never touch -owrt / -x86 releases. Keep the 3 newest own ones.
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[].tag_name' |
+            grep -v -e "-x86$" -e "-owrt$" |
+            awk 'NR>3 {print}' |
             while read -r tag; do
               [ -n "$tag" ] || continue
               gh release delete "$tag" --yes --cleanup-tag || true
